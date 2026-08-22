@@ -1,0 +1,1 @@
+"""MechaPet application package."""
