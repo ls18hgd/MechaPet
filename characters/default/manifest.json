@@ -1,0 +1,21 @@
+{
+  "id": "default",
+  "name": "童年小伙伴",
+  "version": 1,
+  "portrait": "portrait.png",
+  "canvas": {
+    "width": 1024,
+    "height": 1536,
+    "anchor_x": 512,
+    "anchor_y": 1510
+  },
+  "animations": {
+    "idle": {
+      "path": "sprites/idle",
+      "fps": 8,
+      "loop": true
+    }
+  },
+  "fallback_animation": "idle",
+  "persona_prompt": "persona/prompt.txt"
+}

@@ -55,8 +55,14 @@ def main() -> None:
     print("double_click_reuses_chat=True")
 
     controller.actions.play("shake")
+    controller.movement.walk_speed = 80
+    controller.walk_to(pet.base_position() + QPoint(-200, 0))
+    wait(80)
+    assert controller.movement.is_moving()
     old_base = pet.base_position()
     QTest.mousePress(pet, Qt.MouseButton.LeftButton, pos=QPoint(40, 40))
+    assert not controller.movement.is_moving()
+    assert pet.base_position() == pet.movement_position()
     QTest.mouseMove(pet, QPoint(100, 85), delay=20)
     QTest.mouseRelease(pet, Qt.MouseButton.LeftButton, pos=QPoint(100, 85))
     new_base = pet.base_position()
@@ -64,6 +70,7 @@ def main() -> None:
     assert controller.actions.current_offset() == QPoint()
     assert pet.pos() == new_base
     print("drag_updates_base_without_conflict=True")
+    print("drag_stops_automatic_movement=True")
     app.quit()
 
 

@@ -28,6 +28,7 @@ class PetWindow(QWidget):
         self._click_timer.setInterval(QApplication.doubleClickInterval())
         self._click_timer.timeout.connect(self._controller_click)
         self._base_position = QPoint()
+        self._movement_position = QPoint()
         self._animation_offset = QPoint()
         self._pixmap = QPixmap()
         self._ai_client = AIClient()
@@ -38,7 +39,13 @@ class PetWindow(QWidget):
             apply_offset=self.apply_animation_offset,
             show_chat=self.show_chat,
             pet_geometry=self.frameGeometry,
+            get_movement_position=self.movement_position,
+            apply_movement_position=self.apply_movement_position,
+            commit_movement_position=self.commit_movement_position,
+            get_pet_size=self.size,
+            get_available_geometry=self.current_available_geometry,
         )
+        self._settings_window.set_character_manager(self._controller.characters)
         self.pet_geometry_changed.connect(self._controller.handle_pet_moved)
         self._chat_window.message_submitted.connect(
             lambda _message: self._controller.mark_interaction()
@@ -67,16 +74,38 @@ class PetWindow(QWidget):
 
     def set_base_position(self, position: QPoint) -> None:
         self._base_position = QPoint(position)
-        QWidget.move(self, self._base_position + self._animation_offset)
+        self._movement_position = QPoint(position)
+        self._apply_window_position()
         self.pet_geometry_changed.emit(self.frameGeometry())
 
     def base_position(self) -> QPoint:
         return QPoint(self._base_position)
 
+    def movement_position(self) -> QPoint:
+        return QPoint(self._movement_position)
+
+    def apply_movement_position(self, position: QPoint) -> None:
+        self._movement_position = QPoint(position)
+        self._apply_window_position()
+        self.pet_geometry_changed.emit(self.frameGeometry())
+
+    def commit_movement_position(self, position: QPoint) -> None:
+        self._base_position = QPoint(position)
+        self._movement_position = QPoint(position)
+        self._apply_window_position()
+        self.pet_geometry_changed.emit(self.frameGeometry())
+
     def apply_animation_offset(self, offset: QPoint) -> None:
         self._animation_offset = QPoint(offset)
-        QWidget.move(self, self._base_position + self._animation_offset)
+        self._apply_window_position()
         self.pet_geometry_changed.emit(self.frameGeometry())
+
+    def _apply_window_position(self) -> None:
+        QWidget.move(self, self._movement_position + self._animation_offset)
+
+    def current_available_geometry(self) -> QRect:
+        screen = self.screen() or QApplication.primaryScreen()
+        return screen.availableGeometry() if screen is not None else QRect(0, 0, 1920, 1080)
 
     def _placeholder_pixmap(self) -> QPixmap:
         """Create a friendly fallback so a missing asset never crashes startup."""
