@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QApplication, QMenu, QWidget
 
 from app.chat_window import ChatWindow
 from app.ai_client import AIClient
+from app.conversation_store import ConversationStore
 from app.pet_controller import PetController
 from app.settings_window import SettingsWindow
 
@@ -32,7 +33,10 @@ class PetWindow(QWidget):
         self._animation_offset = QPoint()
         self._pixmap = QPixmap()
         self._ai_client = AIClient()
-        self._chat_window = ChatWindow(ai_client=self._ai_client)
+        self._chat_window = ChatWindow(
+            ai_client=self._ai_client,
+            history_store=ConversationStore(),
+        )
         self._settings_window = SettingsWindow()
         self._controller = PetController(
             apply_pixmap=self.set_pet_pixmap,

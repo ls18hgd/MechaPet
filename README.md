@@ -1,6 +1,6 @@
-# MechaPet V0.3
+# MechaPet V0.4
 
-MechaPet 是运行在 Windows 桌面上的透明 Q 版 AI 宠物。V0.3 在 V0.2 的 DeepSeek 聊天、状态互动和气泡能力上，增加了可替换角色包、PNG 序列帧动画和桌面行走系统。
+MechaPet 是运行在 Windows 桌面上的透明 Q 版 AI 宠物。V0.4 会把聊天显示记录和 DeepSeek 多轮上下文安全保存在本机，关闭并重新启动后可以继续上一段对话。V0.3 的可替换角色包、PNG 序列帧和桌面行走能力继续保留。
 
 ## 启动
 
@@ -28,6 +28,7 @@ API Key 只写入被 Git 忽略的 `.env`，不要写进源码。
 - 左键双击：打开聊天
 - 右键：聊天、设置、退出
 - 设置：选择或重新加载角色包、打开角色目录
+- 聊天窗口“清空记录”：确认后删除本机历史并开始新对话
 - 只有右键菜单“退出”会彻底结束程序
 
 ## 角色包规范
@@ -83,6 +84,18 @@ characters/default/
 
 `SpriteAnimator` 使用 Qt `QTimer` 在 GUI 主线程播放帧，不使用阻塞循环。`MovementController` 使用 `QPropertyAnimation` 改变独立的移动坐标；动作偏移不改变角色基准位置，因此循环播放和连续行走不会积累位置误差。角色会自动左右翻转，并按当前屏幕的 `availableGeometry()` 限制移动范围。
 
+## 历史对话
+
+每次用户发送消息及 AI 回复后，程序都会原子化保存两份互相分离的数据：聊天窗口显示记录，以及发给 DeepSeek 的多轮上下文。重启时两者会一起恢复，因此 AI 可以继续理解之前的谈话。
+
+历史文件保存在 Windows 当前用户的本地应用数据目录中，通常为：
+
+```text
+%LOCALAPPDATA%\MechaPet\conversation_history.json
+```
+
+历史最多保留最近 200 条显示消息和 200 条上下文消息。文件不包含 API Key，也不会提交到 GitHub。文件缺失或损坏时会安全地从空白对话启动。可以在聊天窗口右上角点击“清空记录”删除。
+
 ## 项目结构
 
 ```text
@@ -97,6 +110,7 @@ MechaPet/
 │  ├─ pet_window.py           # 透明窗口、拖动与菜单
 │  ├─ settings_window.py      # 配置和角色选择
 │  ├─ chat_window.py          # Markdown 聊天 UI 与 QThread
+│  ├─ conversation_store.py   # 本地历史、校验和原子写入
 │  └─ ai_client.py            # DeepSeek 与运行期上下文
 ├─ characters/default/
 ├─ assets/pet.png

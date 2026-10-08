@@ -2,9 +2,13 @@
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ["MECHAPET_HISTORY_PATH"] = str(
+    Path(tempfile.gettempdir()) / f"mechapet-interactions-{os.getpid()}.json"
+)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PyQt6.QtCore import QEventLoop, QPoint, QTimer

@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QMessageBox,
     QTextBrowser,
     QVBoxLayout,
     QWidget,
@@ -23,6 +24,7 @@ from PyQt6.QtWidgets import (
 
 from app.ai_client import AIClient, AIClientError
 from app.ai_response import AIResponse
+from app.conversation_store import ConversationStore
 
 
 class ChatWorker(QObject):
@@ -57,16 +59,27 @@ class ChatWindow(QWidget):
     response_received = pyqtSignal(object)
     request_failed = pyqtSignal(str)
 
-    def __init__(self, ai_client: AIClient | None = None, fake_reply: bool = False) -> None:
+    def __init__(
+        self,
+        ai_client: AIClient | None = None,
+        fake_reply: bool = False,
+        history_store: ConversationStore | None = None,
+    ) -> None:
         super().__init__()
         self._ai_client = ai_client
         self._fake_reply = fake_reply
         self._busy = False
         self._thread: QThread | None = None
         self._worker: ChatWorker | None = None
-        self._display_messages: list[dict[str, str]] = [
+        self._history_store = history_store
+        display_history, context_history = (
+            history_store.load() if history_store is not None else ([], [])
+        )
+        self._display_messages: list[dict[str, str]] = display_history or [
             {"role": "assistant", "content": "你好呀，我会一直在桌面陪着你。"}
         ]
+        if self._ai_client is not None and hasattr(self._ai_client, "load_history"):
+            self._ai_client.load_history(context_history)
 
         self.setWindowTitle("和 MechaPet 聊天")
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
@@ -75,6 +88,13 @@ class ChatWindow(QWidget):
 
         title = QLabel("MechaPet")
         title.setObjectName("title")
+        clear_button = QPushButton("清空记录")
+        clear_button.setObjectName("clearHistory")
+        clear_button.clicked.connect(self.confirm_clear_history)
+        title_row = QHBoxLayout()
+        title_row.addWidget(title)
+        title_row.addStretch(1)
+        title_row.addWidget(clear_button)
         self.history = QTextBrowser()
         self.history.setObjectName("history")
         self.history.setOpenExternalLinks(False)
@@ -91,7 +111,7 @@ class ChatWindow(QWidget):
         input_row.addWidget(self.send_button)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(title)
+        layout.addLayout(title_row)
         layout.addWidget(self.history, 1)
         layout.addLayout(input_row)
         self.setStyleSheet(
@@ -105,6 +125,8 @@ class ChatWindow(QWidget):
             QPushButton { background: #d98294; color: white; border: none;
                 border-radius: 10px; padding: 9px 16px; font-weight: 600; }
             QPushButton:disabled { background: #d7c8cb; }
+            QPushButton#clearHistory { background: #ead8dc; color: #6b4f57;
+                padding: 6px 10px; font-weight: 500; }
             """
         )
 
@@ -114,6 +136,7 @@ class ChatWindow(QWidget):
             return
         self.input.clear()
         self._display_messages.append({"role": "user", "content": message})
+        self._save_history()
         self.message_submitted.emit(message)
         self._set_busy(True)
         self._display_messages.append(
@@ -149,6 +172,7 @@ class ChatWindow(QWidget):
     def show_reply(self, reply: str) -> None:
         self._remove_status_message()
         self._display_messages.append({"role": "assistant", "content": reply})
+        self._save_history()
         self._render_messages()
         self._set_busy(False)
 
@@ -173,6 +197,39 @@ class ChatWindow(QWidget):
     def _remove_status_message(self) -> None:
         if self._display_messages and self._display_messages[-1]["role"] == "status":
             self._display_messages.pop()
+
+    def _save_history(self) -> None:
+        if self._history_store is None:
+            return
+        history_getter = getattr(self._ai_client, "conversation_history", None)
+        context = history_getter() if callable(history_getter) else []
+        display = [
+            message
+            for message in self._display_messages
+            if message["role"] in {"user", "assistant"}
+        ]
+        self._history_store.save(display, context)
+
+    def confirm_clear_history(self) -> None:
+        choice = QMessageBox.question(
+            self,
+            "清空历史对话",
+            "确定删除本机保存的全部历史对话吗？此操作无法撤销。",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if choice == QMessageBox.StandardButton.Yes:
+            self.clear_history()
+
+    def clear_history(self) -> None:
+        if self._history_store is not None:
+            self._history_store.clear()
+        if self._ai_client is not None and hasattr(self._ai_client, "load_history"):
+            self._ai_client.load_history([])
+        self._display_messages = [
+            {"role": "assistant", "content": "历史记录已经清空啦，我们重新开始吧。"}
+        ]
+        self._render_messages()
 
     def _render_messages(self) -> None:
         """Rebuild the display document with Qt's safe Markdown parser."""

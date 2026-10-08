@@ -45,6 +45,21 @@ class AIClient:
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
 
+    def load_history(self, messages: list[dict[str, str]]) -> None:
+        """Restore validated user/assistant context behind the system prompt."""
+        restored = [
+            {"role": item["role"], "content": item["content"]}
+            for item in messages
+            if item.get("role") in {"user", "assistant"}
+            and isinstance(item.get("content"), str)
+            and item["content"].strip()
+        ]
+        self.messages = [{"role": "system", "content": SYSTEM_PROMPT}, *restored]
+
+    def conversation_history(self) -> list[dict[str, str]]:
+        """Return a copy without the system prompt or any secret configuration."""
+        return [dict(message) for message in self.messages if message["role"] != "system"]
+
     def send_message(self, message: str) -> AIResponse:
         """Send one user message and return the assistant text.
 
